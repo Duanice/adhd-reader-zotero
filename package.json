@@ -1,0 +1,23 @@
+{
+  "name": "adhd-reader-zotero",
+  "version": "0.1.16",
+  "private": true,
+  "description": "Line-focused reading in the native Zotero PDF reader",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/julyseaweed/adhd-reader-zotero.git"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "package": "npm run build && node scripts/package.mjs",
+    "verify:release": "node scripts/verify-release.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.27.3"
+  }
+}

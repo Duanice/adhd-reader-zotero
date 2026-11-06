@@ -1,0 +1,5 @@
+* text=auto eol=lf
+# Preserve the exact tested release bytes, including their line endings.
+addon/manifest.json -text
+addon/bootstrap.js -text
+addon/glyph-metrics.js -text
