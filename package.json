@@ -1,6 +1,6 @@
 {
   "name": "adhd-reader-zotero",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "private": true,
   "description": "Line-focused reading in the native Zotero PDF reader",
   "type": "module",

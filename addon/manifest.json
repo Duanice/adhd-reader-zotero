@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "ADHD Reader",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "description": "在 Zotero PDF 阅读器中逐行聚焦，保留原生标注和 PDF 导出。",
   "author": "ADHD Reader",
   "applications": {

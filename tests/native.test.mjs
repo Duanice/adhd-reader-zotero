@@ -131,7 +131,7 @@ test('same-page automatic scrolling starts near the lower safe zone and eases by
 });
 
 test('native continuous reading stays near the middle with multi-line pauses between scrolls',async()=>{
-  const h=navigationHarness([Array.from({length:40},(_,index)=>200+index*12)],{pageHeight:900,motion:true});
+  const h=navigationHarness([Array.from({length:40},(_,index)=>200+index*10)],{pageHeight:900,motion:true});
   const center=()=>{const r=h.session.screenBox();return(r.top+r.bottom)/2/h.container.clientHeight;};
   const records=[];
   for(const [index,direction]of [[8,1],[30,-1]]){
@@ -141,13 +141,13 @@ test('native continuous reading stays near the middle with multi-line pauses bet
       await h.session.move(direction);await h.settle();samples.push({ratio:center(),moved:Math.abs(h.container.scrollTop-prior)>1});prior=h.container.scrollTop;
     }
     records.push(samples);
-    assert.ok(samples.every(s=>s.ratio>=.32&&s.ratio<=.66),'every completed step remains in the middle comfort band');
+    assert.ok(samples.every(s=>s.ratio>=.35&&s.ratio<=.57),'every completed step remains in the earlier middle comfort band');
     assert.ok(samples.filter(s=>s.moved).length<=8,'the page does not move on each line');
     assert.ok(samples.some((s,i)=>i&&!s.moved&&!samples[i-1].moved),'several consecutive rows are read in a stationary viewport');
     assert.ok(Math.max(...samples.map(s=>s.ratio))-Math.min(...samples.map(s=>s.ratio))>.1,'reading is not pinned to a single height');
   }
   assert.ok(records[0].filter(s=>s.moved).every(s=>Math.abs(s.ratio-.43)<.02));
-  assert.ok(records[1].filter(s=>s.moved).every(s=>Math.abs(s.ratio-.55)<.02));
+  assert.ok(records[1].filter(s=>s.moved).every(s=>Math.abs(s.ratio-.49)<.02));
 });
 
 test('native same-page column transitions use reading direction rather than geometric vertical direction',async()=>{
@@ -158,7 +158,7 @@ test('native same-page column transitions use reading direction rather than geom
   await h.session.move(1);await h.settle();assert.equal(h.session.current.index,8);
   let box=h.session.screenBox();assert.ok(Math.abs((box.top+box.bottom)/2/h.container.clientHeight-.43)<.01,'forward column entry returns to the forward reading height');
   await h.session.move(-1);await h.settle();assert.equal(h.session.current.index,7);
-  box=h.session.screenBox();assert.ok(Math.abs((box.top+box.bottom)/2/h.container.clientHeight-.55)<.01,'backward column entry returns to the backward reading height');
+  box=h.session.screenBox();assert.ok(Math.abs((box.top+box.bottom)/2/h.container.clientHeight-.49)<.01,'backward column entry returns to the backward reading height');
 });
 
 test('animated cross-page movement retains its logical cursor until the target becomes visible',async()=>{

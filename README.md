@@ -12,7 +12,7 @@ ADHD Reader 在 **Zotero 原生 PDF 阅读器**中突出当前阅读行，淡化
 2. 在 Zotero 中打开 **工具 → 插件**，点击齿轮，选择 **从文件安装插件**，然后选中下载的 XPI。此步骤也可参考 [Zotero 官方安装说明](https://www.zotero.org/support/plugins)。
 3. 打开一篇 PDF，点击顶部工具栏的 **行读**。若安装时已打开的阅读器没有显示按钮，关闭该 PDF 标签再打开。
 
-更新时用相同步骤安装新版 XPI；插件 ID 保持一致，Zotero 会替换旧版本。**0.1.16 使用手动更新**。不需要把 PDF 转换或复制到另一个阅读器。
+更新时用相同步骤安装新版 XPI；插件 ID 保持一致，Zotero 会替换旧版本。**0.1.17 使用手动更新**。不需要把 PDF 转换或复制到另一个阅读器。
 
 ### 操作
 
@@ -27,7 +27,7 @@ ADHD Reader 在 **Zotero 原生 PDF 阅读器**中突出当前阅读行，淡化
 
 快捷键只在没有文字选区、没有编辑输入且原生选择工具可用时接管。默认日间模式。菜单也可以用 `Esc` 关闭。
 
-阅读行在中部舒适区内时页面保持稳定，偏离后平滑移动；连续按键会接续滚动，不会把每一行固定在同一高度。系统的减少动态效果设置会被遵从。
+阅读行在中部舒适区内时页面保持稳定，偏离后平滑移动；0.1.17 会更早开始回移，减少目光停留在屏幕下方的时间。连续按键会接续滚动，不会把每一行固定在同一高度。系统的减少动态效果设置会被遵从。
 
 **手动浏览不会另选一行。** 即使滚到别页，原行也继续保留；当前视野只显示淡化蒙版。滚回后仍突出原行，再按逐行键会从原行继续并将它带回视野。缩放和旋转更新同一原文锚点；原行已离屏时不会把视野拉回。
 
@@ -42,6 +42,7 @@ Zotero 版不内置翻译、词典或翻译请求。选中文字后的 `Enter`�
 ### 兼容范围
 
 - **实际运行验证：Windows 上的 Zotero 10.0.7。** 0.1.16 的原生验证包含鼠标和键盘、跨页、图表排除、原生标注导出及生命周期检查。
+- 0.1.17 使用合成 PDF 完成 149 项隔离运行检查，覆盖提前平滑回中、双向连续阅读、快速按键、跨栏和跨页、手动接管、缩放及热卸载重载。
 - 清单允许 Zotero **7.0–10.0.x** 安装；这些版本及 macOS/Linux 尚未全部实机验证。
 - PDF 需要可提取文字层；扫描件应先做 OCR。本插件不自带 OCR。
 - 分屏时聚焦作用于主阅读区。复杂排版的区域识别可能需要继续改进。
@@ -61,7 +62,7 @@ npm run package
 
 安装产物是 `dist/ADHD-Reader-Zotero.xpi`。构建不需要 Zotero 配置、文献库或本地 PDF，也不会安装插件。
 
-`addon/` 中的三个文件对应已验证的 0.1.16 发行内容。`src/` 是生成 `glyph-metrics.js` 所需的共享源码闭包；锁定版本的 esbuild 负责打包。`release-checksums.json` 及 `verify:release` 校验三个文件的逐字节一致性。修改产品或升级依赖后，应在验证新版本时更新校验值。
+`addon/` 中的三个文件对应 0.1.17 版本。`src/` 是生成 `glyph-metrics.js` 所需的共享源码闭包；锁定版本的 esbuild 负责打包。`release-checksums.json` 及 `verify:release` 校验三个文件的逐字节一致性。修改产品或升级依赖后，应在验证新版本时更新校验值。
 
 测试输入全部为合成文字、几何或阅读器模拟对象，说明见 [tests/README.md](tests/README.md)。仓库不包含用户 PDF、阅读状态、截图、运行日志或 Zotero 配置。
 
@@ -77,7 +78,7 @@ ADHD Reader highlights the current reading line and dims surrounding content **i
 2. In Zotero, open **Tools → Plugins**, click the gear, choose **Install Plugin From File**, and select the XPI. See the [official Zotero installation instructions](https://www.zotero.org/support/plugins).
 3. Open a PDF and click **行读** (line guide) in its toolbar. If a reader that was already open does not show the button, close and reopen that PDF tab.
 
-Install a newer XPI in the same way to update. The stable add-on ID lets Zotero replace the previous version. **Version 0.1.16 uses manual updates.** PDFs stay in the native reader.
+Install a newer XPI in the same way to update. The stable add-on ID lets Zotero replace the previous version. **Version 0.1.17 uses manual updates.** PDFs stay in the native reader.
 
 ### Controls
 
@@ -92,7 +93,7 @@ Install a newer XPI in the same way to update. The stable add-on ID lets Zotero 
 
 Reading keys are handled only when there is no text selection or editing input and the native selection tool is available. Day mode is the default. `Esc` closes the settings menu.
 
-The page stays still while the line is within a central comfort band, then moves smoothly when needed. Repeated keys continue the motion without pinning every line to one height. The system's reduced-motion preference is respected.
+The page stays still while the line is within a central comfort band, then moves smoothly when needed. Version 0.1.17 starts the return earlier so reading spends less time near the bottom of the screen. Repeated keys continue the motion without pinning every line to one height. The system's reduced-motion preference is respected.
 
 **Manual browsing never selects a substitute line.** The original line remains anchored even on another page. An offscreen anchor leaves the visible area dimmed; returning reveals the original line, and a reading key resumes from it and brings it into view. Zoom and rotation update the same source anchor without pulling an offscreen reading position back into view.
 
@@ -107,6 +108,7 @@ The Zotero add-on includes no translator, dictionary, or translation service req
 ### Compatibility
 
 - **Runtime tested: Zotero 10.0.7 on Windows.** Native 0.1.16 validation covers mouse/keyboard interaction, page transitions, figure/table exclusions, native annotation export, and lifecycle behavior.
+- Version 0.1.17 passed 149 isolated runtime checks with authored PDFs, covering earlier smooth recentering, reading in both directions, rapid keys, column/page transitions, manual takeover, zoom, and hot unload/reload.
 - The manifest permits **Zotero 7.0–10.0.x**; not every version or macOS/Linux installation has been tested.
 - PDFs need an extractable text layer. OCR scanned documents before use; OCR is not bundled.
 - In split view, the guide operates on the primary reading pane. Complex layout recognition may need further improvements.
@@ -126,7 +128,7 @@ npm run package
 
 The installable output is `dist/ADHD-Reader-Zotero.xpi`. Building requires no Zotero profile, library, or local PDF and does not install the add-on.
 
-The three `addon/` files match the tested 0.1.16 release. `src/` contains the shared source dependency closure needed to produce `glyph-metrics.js`, bundled with the pinned esbuild version. `release-checksums.json` and `verify:release` check the exact bytes of those three files. Update the checksums only after validating an intentional new product or dependency version.
+The three `addon/` files represent version 0.1.17. `src/` contains the shared source dependency closure needed to produce `glyph-metrics.js`, bundled with the pinned esbuild version. `release-checksums.json` and `verify:release` check the exact bytes of those three files. Update the checksums only after validating an intentional new product or dependency version.
 
 All public tests use synthetic text, geometry, or reader mocks; see [tests/README.md](tests/README.md). No user PDFs, reading state, screenshots, runtime logs, or Zotero profiles are included.
 
