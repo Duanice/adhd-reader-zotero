@@ -3,9 +3,9 @@
     "adhd-sentence-reader@duanice.github.io": {
       "updates": [
         {
-          "version": "0.1.0",
-          "update_link": "https://github.com/Duanice/adhd-reader-zotero/releases/download/v0.1.0/ADHD-Sentence-Reader-Zotero.xpi",
-          "update_hash": "sha256:9a5655e2fd55d2fb40d2151475dce0b7cfac0110c2cd0794379020863968ed35",
+          "version": "0.1.1",
+          "update_link": "https://github.com/Duanice/adhd-reader-zotero/releases/download/v0.1.1/ADHD-Sentence-Reader-Zotero.xpi",
+          "update_hash": "sha256:5cff80054be472251d69290fdcd5f45f81d98836ec62d7f539253dd5de797c47",
           "applications": {
             "zotero": {
               "strict_min_version": "7.0",

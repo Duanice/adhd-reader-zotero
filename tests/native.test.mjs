@@ -139,6 +139,55 @@ test('sentence units use Chinese punctuation and retain the upstream column orde
     ['左栏第一句。', '左栏第二句！', '左栏最后一句？', 'Right first.', 'Right second.', 'Right third with 3.14.']);
 });
 
+test('a sideways margin label cannot carry a full-width abstract into the columns below', async () => {
+  const h = navigationHarness([[]], { pageHeight: 792, motion: true });
+  const size = (text, x, y, width, em = 10) => ({
+    ...item(text, x, 792 - y, width), transform: [em, 0, 0, em, x, 792 - y],
+  });
+  const content = { items: [
+    ...Array.from({ length: 6 }, (_, i) => size('This is a wide abstract line spanning both columns.', 75, 356 + i * 12, 445)),
+    size('1 INTRODUCTION', 55, 446, 110, 12),
+    ...['This experiment begins in the left', 'column and continues on the line below',
+      'until the first sentence ends.', 'The last left sentence ends here.']
+      .map((line, i) => size(line, 55, 466 + i * 12, i === 2 ? 150 : 234)),
+    ...['The right side describes a different', 'experiment that starts near the top',
+      'and concludes on the third row.', 'The last right sentence ends here.']
+      .map((line, i) => size(line, 307, 446 + i * 12, 234)),
+    { str: 'Preprint identifier in the outside margin', transform: [0, 20, -20, 0, 38, 228], width: 336 },
+  ], styles: {} };
+  h.session.app.pdfDocument.getPage = async () => ({ getTextContent: async () => content, getViewport: () => h.viewport });
+  h.session.rows = GuideSession.prototype.rows;
+  h.doc.createElementNS = (namespace, tag) => toolbarDocument().doc.createElement(tag);
+  h.session.overlay = h.doc.createElementNS(null, 'div');
+  const rows = await h.session.rows(0);
+  const data = h.session.pageData.get(0);
+  assert.ok(data.excludedRows.some(row => row.readingRole === 'margin'));
+  const heading = rows.findIndex(row => row.text === '1 INTRODUCTION');
+  assert.ok(heading >= 0, "the left heading has its own focus stop");
+  assert.deepEqual(rows.slice(heading).map(row => row.text), [
+    '1 INTRODUCTION',
+    'This experiment begins in the left column and continues on the line below until the first sentence ends.',
+    'The last left sentence ends here.',
+    'The right side describes a different experiment that starts near the top and concludes on the third row.',
+    'The last right sentence ends here.',
+  ]);
+  h.container.scrollTop = 390;
+  await flush();
+  assert.equal(await h.session.chooseAt(0, 110, 75), true);
+  assert.equal(h.session.current.index, heading + 1);
+  const left = h.session.screenBox().rects;
+  assert.equal(left.length, 3);
+  assert.ok(left.every(box => box.right < 300));
+  await h.session.move(1);
+  assert.equal(h.session.current.index, heading + 2);
+  await h.session.move(1);
+  await h.settle();
+  assert.equal(h.session.current.index, heading + 3);
+  assert.ok(h.session.screenBox().rects.every(box => box.left >= 300));
+  await h.session.move(-1);
+  assert.equal(h.session.current.index, heading + 2);
+});
+
 test('native guide crosses page boundaries using actual container geometry and keeps the whole unit visible', async()=>{
   const h=navigationHarness();h.session.selectFocus({page:0,index:2});h.container.scrollTop=240;h.session.lastScrollPosition=h.session.scrollPosition();
   assert.equal(await h.session.move(1),true);

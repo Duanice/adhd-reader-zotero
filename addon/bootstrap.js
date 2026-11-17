@@ -64,7 +64,7 @@ function classifyReadingRows(allRows, viewport) {
     const page = readingBox({ x: 0, y: 0, right: viewport.width, bottom: viewport.height });
     const sizes = main.rows.map(row => (row.em || Math.min(row.right - row.x, row.height)) / scale).sort((a, b) => a - b);
     const median = sizes.length % 2 ? sizes[(sizes.length - 1) / 2] : (sizes[sizes.length / 2 - 1] + sizes[sizes.length / 2]) / 2;
-    const gap = Math.max(median * 1.2, Math.min(page.width, page.height) * .015);
+    const gap = Math.max(median, Math.min(page.width, page.height) * .015);
     for (const row of allRows) {
       if (Math.abs(Math.sin((row.angle || 0) - angle)) < .94) continue;
       const box = readingBox(row), cx = box.x + box.width / 2, cy = box.y + box.height / 2;

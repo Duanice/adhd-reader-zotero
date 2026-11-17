@@ -85,8 +85,16 @@ function buildTextReadingUnits({ items, baselineLines, structures = {}, viewport
   for(const region of tableRegions)region.readingNeighbors={previous:null,next:null};
   if (!items.length) return { units: [], rawLines: baselineLines, components: [], regions: [] };
   const scale = Math.hypot(viewport.transform[0], viewport.transform[1]);
-  const dominant = baselineLines.reduce((best, line) => line.items.length > best.items.length ? line : best, baselineLines[0]);
-  const angle = dominant.angle || 0, cos = Math.cos(angle), sin = Math.sin(angle);
+  const alignment = Math.cos(Math.PI / 18);
+  const directions = [];
+  for (const line of baselineLines) {
+    const angle = line.angle || 0;
+    let direction = directions.find(candidate => Math.cos(candidate.angle - angle) > alignment);
+    if (!direction) directions.push(direction = { angle, count: 0 });
+    direction.count++;
+  }
+  const { angle } = directions.reduce((best, direction) => direction.count > best.count ? direction : best);
+  const cos = Math.cos(angle), sin = Math.sin(angle);
   const projectPoint = (x, y) => [cos * x + sin * y, -sin * x + cos * y];
   const frame = value => readingFrameRect(value, angle);
   const em = median(items.map(item => item.fontHeight));
@@ -189,7 +197,11 @@ function buildTextReadingUnits({ items, baselineLines, structures = {}, viewport
       row.flow=true;anchorsChanged=true;
     }
   }
-  const regionLayout=createReadingRegions([...lineData,...anchorData.filter(row=>row.flow)],{bounds:{x:textBox.x,y:pageBox.y,width:textBox.width,height:pageBox.height},em,scale});
+  // Sideways text can extend through the abstract and the columns below it.
+  // Infer the layout from the main reading direction, then place all items.
+  const layoutRows = [...lineData, ...anchorData.filter(row => row.flow)]
+    .filter(row => Math.cos((row.line.angle || 0) - angle) > alignment);
+  const regionLayout=createReadingRegions(layoutRows,{bounds:{x:textBox.x,y:pageBox.y,width:textBox.width,height:pageBox.height},em,scale});
   const regionAt=regionLayout.regionAt;
   const inRegion = (box, region) => midpoint(box)[0] >= region.x - em * .2 && midpoint(box)[0] <= right(region) + em * .2;
   const components = [];

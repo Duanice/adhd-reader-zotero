@@ -1,6 +1,6 @@
 {
   "name": "adhd-sentence-reader-zotero",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Sentence-focused reading in the native Zotero PDF reader",
   "type": "module",

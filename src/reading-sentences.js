@@ -18,6 +18,10 @@ function* sentenceSegments(text) {
   if (start < text.length) yield { index: start, segment: text.slice(start) };
 }
 
+function isHeadingBeside(row, neighbor) {
+  return row.em >= neighbor.em * 1.15 && /\p{Lu}{2}/u.test(row.text) && !/\p{Ll}/u.test(row.text);
+}
+
 function continuesRow(previous, row) {
   const em = Math.max(previous.em, row.em);
   const gap = row.baseline - previous.baseline;
@@ -25,6 +29,7 @@ function continuesRow(previous, row) {
     && previous.readingRole === row.readingRole && previous.flowId === row.flowId
     && Math.abs(previous.angle - row.angle) < .1
     && Math.min(previous.em, row.em) >= .83 * em
+    && !isHeadingBeside(previous, row) && !isHeadingBeside(row, previous)
     && gap > .35 * em && gap <= 1.9 * em
     && row.inlineStart <= previous.inlineStart + .85 * em;
 }

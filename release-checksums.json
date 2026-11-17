@@ -1,9 +1,9 @@
 {
-  "version": "0.1.0",
+  "version": "0.1.1",
   "algorithm": "sha256",
   "files": {
-    "addon/manifest.json": "8adcecf134867bafbfbc3bbfb85bc0ee20166e68907467fb2bc26fff717a0049",
-    "addon/bootstrap.js": "e97b621a06b9b086f74165dfd26d88474ab2167f7d163d623b47d149ec15e01c",
-    "addon/glyph-metrics.js": "c11c9de58f4ae941cdc5893ce109711bdc35658b08bf9326458d3a28c96e7f6a"
+    "addon/manifest.json": "3a6b7fd4622d66c03246fcdf16dddf906488cc68232047e765b4b238248f9e20",
+    "addon/bootstrap.js": "1f4e811a84204cacf8195aef39ffe335b2f057cfb5bcbd5f08fd7cf0c331d77b",
+    "addon/glyph-metrics.js": "715a3a544c6da1802818be76f233fa8bb1dd3c2f7ea72c62edccf4cbb0255a34"
   }
 }

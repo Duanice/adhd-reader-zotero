@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "ADHD Sentence Reader",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "在 Zotero PDF 阅读器中逐句聚焦，保留原生标注和 PDF 导出。",
   "applications": {
     "zotero": {
