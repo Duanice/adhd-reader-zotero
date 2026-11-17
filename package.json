@@ -1,12 +1,12 @@
 {
-  "name": "adhd-reader-zotero",
-  "version": "0.1.17",
+  "name": "adhd-sentence-reader-zotero",
+  "version": "0.1.0",
   "private": true,
-  "description": "Line-focused reading in the native Zotero PDF reader",
+  "description": "Sentence-focused reading in the native Zotero PDF reader",
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "https://github.com/julyseaweed/adhd-reader-zotero.git"
+    "url": "https://github.com/Duanice/adhd-reader-zotero.git"
   },
   "engines": {
     "node": ">=20"

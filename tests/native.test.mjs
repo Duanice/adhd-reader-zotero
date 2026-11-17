@@ -90,6 +90,55 @@ function navigationHarness(pageLines = [[40, 100, 300], [40, 100, 300]], { cache
 }
 const flush = async()=>{for(let i=0;i<12;i++)await Promise.resolve();};
 
+test('sentence navigation locates same-line boundaries and reveals just the wrapped sentence', async () => {
+  const h = navigationHarness();
+  const content = { items: [
+    item('See Fig. 2. The result continues', 50, 360, 310),
+    item('onto this line. Next sentence.', 50, 344, 290),
+  ], styles: {} };
+  h.session.app.pdfDocument.getPage = async () => ({ getTextContent: async () => content, getViewport: () => h.viewport });
+  h.session.rows = GuideSession.prototype.rows;
+  h.doc.createElementNS = (namespace, tag) => toolbarDocument().doc.createElement(tag);
+  h.session.overlay = h.doc.createElementNS(null, 'div');
+  const rows = await h.session.rows(0);
+  assert.deepEqual(rows.map(row => row.text), ['See Fig. 2.', 'The result continues onto this line.', 'Next sentence.']);
+  await h.session.chooseAt(0, 250, 40);
+  assert.equal(h.session.current.index, 1);
+  assert.equal(h.session.sentenceMask.holes.length, 2);
+  for (const [i, hole] of h.session.sentenceMask.holes.entries()) {
+    assert.equal(hole.attributes.x, h.session.screenBox().rects[i].left);
+  }
+  await h.session.chooseAt(0, 75, 56);
+  assert.equal(h.session.current.index, 1, 'the continuation line selects the same sentence');
+  const anchor = h.session.lockedFocus();
+  assert.ok(anchor.offset > 0, 'the second sentence starts inside the same PDF text item');
+  await h.session.refreshLayout();
+  assert.deepEqual(h.session.lockedFocus(), anchor);
+  await h.session.handleKeyDown(h.event('ArrowUp'));
+  assert.equal(h.session.current.index, 0);
+  assert.equal(h.session.sentenceMask.svg.style.display, 'none');
+  await h.session.handleKeyDown(h.event('Enter'));
+  await h.session.handleKeyDown(h.event('ArrowDown'));
+  assert.equal(h.session.current.index, 2);
+  h.selection.isCollapsed = false;
+  const key = h.event('ArrowUp');
+  await h.session.handleKeyDown(key);
+  assert.equal(key.prevented, false);
+  assert.equal(h.session.current.index, 2);
+});
+
+test('sentence units use Chinese punctuation and retain the upstream column order', () => {
+  const content = [
+    item('左栏第一句。左栏第二句！', 50, 700),
+    item('左栏最后一句？', 50, 684),
+    item('Right first. Right second.', 350, 700),
+    item('Right third with 3.14.', 350, 684),
+  ];
+  const layout = makePageLayout(content, viewport);
+  assert.deepEqual(sharedGlyphMetrics.buildSentenceUnits(layout.rows).rows.map(row => row.text),
+    ['左栏第一句。', '左栏第二句！', '左栏最后一句？', 'Right first.', 'Right second.', 'Right third with 3.14.']);
+});
+
 test('native guide crosses page boundaries using actual container geometry and keeps the whole unit visible', async()=>{
   const h=navigationHarness();h.session.selectFocus({page:0,index:2});h.container.scrollTop=240;h.session.lastScrollPosition=h.session.scrollPosition();
   assert.equal(await h.session.move(1),true);
@@ -739,11 +788,17 @@ test('the shared glyph metrics bundle loads into the Zotero subscript scope', as
   assert.equal(typeof api.orderReadingLines, 'function');
   assert.equal(typeof api.extractDrawingStructures, 'function');
   assert.equal(typeof api.buildReadingUnits, 'function');
+  assert.equal(typeof api.buildSentenceUnits, 'function');
   assert.equal(api.ordinaryMetrics({ ascent: .775, descent: -.96 }), false);
   const styles = { body: { ascent: .72, descent: -.2, fontFamily: 'serif' }, damaged: { ascent: 0, descent: 0, fontFamily: 'serif' } };
   const value = api.fontMetrics({}, 'damaged', styles.damaged, styles, 'x');
   assert.equal(value.ascent, .72);
   assert.equal(value.descent, .2);
+  const firefox115 = vm.createContext({ Intl: {} });
+  vm.runInContext(bundle.outputFiles[0].text, firefox115);
+  const { rows } = makePageLayout([item('See Fig. 2. 次句。终句！', 50, 700)], viewport);
+  assert.deepEqual(Array.from(firefox115.ADHDGlyphMetrics.buildSentenceUnits(rows).rows, row => row.text),
+    ['See Fig. 2.', '次句。', '终句！']);
 });
 
 function toolbarDocument() {
@@ -780,7 +835,7 @@ function lifecycleContext(readers) {
       ? {} : { ADHDGlyphMetrics: sharedGlyphMetrics }) } },
   });
   vm.runInContext(source, runtime);
-  return { runtime, registered, errors, data: { id: 'linea-reader@local.linea', version: '0.1.8', rootURI: 'jar:file:///isolated/adhd-reader.xpi!/' } };
+  return { runtime, registered, errors, data: { id: 'adhd-sentence-reader@duanice.github.io', version: '0.1.0', rootURI: 'jar:file:///isolated/adhd-reader.xpi!/' } };
 }
 
 test('Zotero loads only reading geometry, without translation resources or selection hooks', async () => {
@@ -801,17 +856,17 @@ test('hot installation fills an existing PDF toolbar once and cleans it on shutd
   const reader = { type: 'pdf', _initPromise: Promise.resolve(), _iframeWindow: { document: doc } };
   const h = lifecycleContext([reader, { type: 'epub', _iframeWindow: { document: doc } }]);
   await h.runtime.startup(h.data); await Promise.resolve();
-  assert.equal(slot.querySelectorAll('.linea-toolbar').length, 1);
-  assert.equal(slot.querySelectorAll('.linea-toolbar-section').length, 1);
+  assert.equal(slot.querySelectorAll('.adhd-sentence-toolbar').length, 1);
+  assert.equal(slot.querySelectorAll('.adhd-sentence-toolbar-section').length, 1);
   assert.equal(h.registered.size, 1);
   await h.runtime.mountExistingReader(reader, vm.runInContext('startupGeneration', h.runtime));
-  assert.equal(slot.querySelectorAll('.linea-toolbar').length, 1, 'late reader mount cannot duplicate the event toolbar');
+  assert.equal(slot.querySelectorAll('.adhd-sentence-toolbar').length, 1, 'late reader mount cannot duplicate the event toolbar');
   slot.replaceChildren();
   h.registered.get('renderToolbar')({ reader, doc, append: node => slot.append(node) });
-  assert.equal(slot.querySelectorAll('.linea-toolbar').length, 1, 'native rerender recreates the toolbar normally');
+  assert.equal(slot.querySelectorAll('.adhd-sentence-toolbar').length, 1, 'native rerender recreates the toolbar normally');
   h.runtime.shutdown();
-  assert.equal(slot.querySelectorAll('.linea-toolbar').length, 0);
-  assert.equal(slot.querySelectorAll('.linea-toolbar-section').length, 0);
+  assert.equal(slot.querySelectorAll('.adhd-sentence-toolbar').length, 0);
+  assert.equal(slot.querySelectorAll('.adhd-sentence-toolbar-section').length, 0);
   assert.equal(h.registered.size, 0);
   assert.deepEqual(h.errors, []);
 });
@@ -826,10 +881,10 @@ test('a previous startup cannot mount a toolbar after shutdown or a later restar
   reader._initPromise = new Promise(resolve => { nextReady = resolve; });
   await h.runtime.startup(h.data);
   firstReady(); await Promise.resolve(); await Promise.resolve();
-  assert.equal(slot.querySelectorAll('.linea-toolbar').length, 0, 'old initialization cannot attach during a later generation');
+  assert.equal(slot.querySelectorAll('.adhd-sentence-toolbar').length, 0, 'old initialization cannot attach during a later generation');
   nextReady(); await Promise.resolve(); await Promise.resolve();
-  assert.equal(slot.querySelectorAll('.linea-toolbar').length, 1);
+  assert.equal(slot.querySelectorAll('.adhd-sentence-toolbar').length, 1);
   h.runtime.shutdown();
-  assert.equal(slot.querySelectorAll('.linea-toolbar-section').length, 0, 'fallback wrappers are removed too');
+  assert.equal(slot.querySelectorAll('.adhd-sentence-toolbar-section').length, 0, 'fallback wrappers are removed too');
   assert.deepEqual(h.errors, []);
 });

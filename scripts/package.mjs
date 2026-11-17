@@ -37,5 +37,5 @@ end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(files.length, 8);
 end.writeUInt16LE(files.length, 10); end.writeUInt32LE(directory.length, 12);
 end.writeUInt32LE(offset, 16);
 await mkdir('dist', {recursive: true});
-await writeFile('dist/ADHD-Reader-Zotero.xpi', Buffer.concat([...locals, directory, end]));
-console.log('Packaged dist/ADHD-Reader-Zotero.xpi');
+await writeFile('dist/ADHD-Sentence-Reader-Zotero.xpi', Buffer.concat([...locals, directory, end]));
+console.log('Packaged dist/ADHD-Sentence-Reader-Zotero.xpi');

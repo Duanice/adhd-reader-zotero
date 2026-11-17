@@ -127,3 +127,4 @@ export { extractDrawingStructures } from './pdf-structure.js';
 export { buildReadingUnits } from './math-reading.js';
 export { createReadingScroll, readingScrollTarget } from './reading-scroll.js';
 export { chooseVisibleReadingLine } from './visible-reading-line.js';
+export { buildSentenceUnits } from './reading-sentences.js';

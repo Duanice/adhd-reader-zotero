@@ -1,8 +1,8 @@
 /* global Zotero, Services */
 "use strict";
 
-const LINEA_ID = "linea-reader@local.linea";
-const LINEA_PREF = "extensions.linea-reader.";
+const LINEA_ID = "adhd-sentence-reader@duanice.github.io";
+const LINEA_PREF = "extensions.adhd-sentence-reader.";
 const sessions = new Map();
 let toolbarHandler;
 let running = false;
@@ -264,6 +264,13 @@ function closestRow(rows, x, y, excludedRows = [], excludedRegions = []) {
   return index;
 }
 
+function findFocusIndex(rows, anchor) {
+  if (anchor.item === undefined) return anchor.index;
+  const offset = anchor.offset ?? 0;
+  return rows.findIndex(row => row.items.some(item => item.index === anchor.item
+    && offset >= (item.start ?? 0) && offset < (item.end ?? Infinity)));
+}
+
 class GuideSession {
   constructor(reader, doc) {
     this.reader = reader; this.doc = doc;
@@ -286,15 +293,15 @@ class GuideSession {
   selectFocus(position) {
     this.current = position;
     const row = position && this.pageData?.get(position.page)?.rows[position.index];
-    this.focusAnchor = position && { ...position, item: row?.items[0]?.index };
+    this.focusAnchor = position && { ...position, item: row?.items[0]?.index, offset: row?.items[0]?.start };
   }
   remapFocus(anchor, rows) {
     if (!anchor) return;
-    const index = anchor.item === undefined ? anchor.index : rows.findIndex(row => row.items.some(item => item.index === anchor.item));
+    const index = findFocusIndex(rows, anchor);
     this.current = index >= 0 && rows[index] ? { page: anchor.page, index } : null;
     // A temporarily absent source glyph is still the reading anchor. It must
     // not turn into the unrelated row now occupying the old numeric index.
-    this.focusAnchor = { page: anchor.page, index: this.current?.index ?? anchor.index, item: anchor.item };
+    this.focusAnchor = { page: anchor.page, index: this.current?.index ?? anchor.index, item: anchor.item, offset: anchor.offset };
   }
   closeMenus({ except = null, focusReader = false } = {}) {
     let closed = false;
@@ -373,23 +380,24 @@ class GuideSession {
   readingAnchor() {
     const data = this.current && this.pageData?.get(this.current.page), row = data?.rows[this.current.index];
     if (!row) return null;
-    const saved = this.stableFocus, item = this.lockedFocus()?.item ?? row.items[0]?.index;
+    const saved = this.stableFocus, anchor = this.lockedFocus();
+    const item = anchor?.item ?? row.items[0]?.index, offset = anchor?.offset;
     const box = this.screenBox(), bounds = this.viewportBounds();
     const viewport = this.app.pdfViewer.getPageView(this.current.page)?.viewport;
     const scaleChanged = saved && (saved.scale !== viewport?.scale || saved.viewerScale !== this.app.pdfViewer.currentScale);
-    if (saved && saved.page === this.current.page && saved.item === item && saved.win === this.win && saved.document === this.app.pdfDocument && saved.epoch === this.layoutEpoch
+    if (saved && saved.page === this.current.page && saved.item === item && saved.offset === offset && saved.win === this.win && saved.document === this.app.pdfDocument && saved.epoch === this.layoutEpoch
       && (this.intersects(box, bounds) || scaleChanged)) return saved;
     if (!this.intersects(box, bounds) && !this.scrollMotion?.active) return null;
-    return { page: this.current.page, index: this.current.index, item, win: this.win, document: this.app.pdfDocument, epoch: this.layoutEpoch,
+    return { page: this.current.page, index: this.current.index, item, offset, win: this.win, document: this.app.pdfDocument, epoch: this.layoutEpoch,
       ratio: this.intersects(box, bounds) ? ((box.top + box.bottom) / 2 - bounds.top) / bounds.height : .4 };
   }
   compensateScale(state) {
     const anchor = state.anchor, source = this.lockedFocus();
     if (!anchor || !this.valid(state.owner) || anchor.win !== this.win || anchor.document !== this.app.pdfDocument || anchor.epoch !== this.layoutEpoch) return;
-    if (!source || source.page !== anchor.page || source.item !== anchor.item) return;
+    if (!source || source.page !== anchor.page || source.item !== anchor.item || source.offset !== anchor.offset) return;
     const rows = this.pageData?.get(anchor.page)?.rows;
     if (!rows?.length) return;
-    const index = rows.findIndex(row => row.items.some(item => item.index === anchor.item));
+    const index = findFocusIndex(rows, anchor);
     if (index < 0) return;
     this.remapFocus(source, rows);
     const box = this.screenBox(), bounds = this.viewportBounds(), container = this.scroller();
@@ -464,7 +472,7 @@ class GuideSession {
     const core = internalReader(this.reader), view = core?._primaryView;
     const frame = view?._iframeWindow || view?._iframe?.contentWindow;
     const win = frame?.wrappedJSObject || frame;
-    if (!win?.PDFViewerApplication?.pdfDocument) throw new Error("PDF 尚未就绪，请稍后再点击行读。");
+    if (!win?.PDFViewerApplication?.pdfDocument) throw new Error("PDF 尚未就绪，请稍后再点击句读。");
     if (this.win === win) return;
     this.detach(); this.win = win; this.app = win.PDFViewerApplication;
     this.overlay = win.document.createElement("div");
@@ -504,7 +512,7 @@ class GuideSession {
         if (type !== "tab" || event !== "select") return;
         if (!this.isActive()) this.cancelNavigation(); else this.onViewportChange();
       } };
-      const id = Zotero.Notifier.registerObserver(observer, ["tab"], "adhd-reader-guide");
+      const id = Zotero.Notifier.registerObserver(observer, ["tab"], "adhd-sentence-reader-guide");
       this.cleanups.push(() => Zotero.Notifier.unregisterObserver(id));
     }
     const bus = this.app.eventBus;
@@ -576,7 +584,15 @@ class GuideSession {
           const metricsForItem = item => metrics.fontMetrics(metricPage, item.fontName, content.styles?.[item.fontName], content.styles || {}, item.str, maps, this.win?.document);
           const structures = metricPage.getOperatorList && ops ? metrics.extractDrawingStructures(await metricPage.getOperatorList(), ops, viewport) : { rules: [] };
           if (this.app !== app || epoch !== this.layoutEpoch) return null;
-          return { ...makePageLayout(content.items, viewport, content.styles, metricsForItem, structures), viewport };
+          const layout = makePageLayout(content.items, viewport, content.styles, metricsForItem, structures);
+          let measure;
+          const measureWidth = (text, fontName) => {
+            measure ||= this.win?.document.createElement("canvas").getContext?.("2d");
+            if (!measure) return [...text].length;
+            measure.font = `100px ${content.styles?.[fontName]?.fontFamily || "sans-serif"}`;
+            return measure.measureText(text).width;
+          };
+          return { ...layout, ...metrics.buildSentenceUnits(layout.rows, measureWidth), viewport };
         })();
         this.pendingRows.set(key, pending);
       }
@@ -604,10 +620,19 @@ class GuideSession {
     const div = position && this.app?.pdfViewer.getPageView?.(position.page)?.div;
     if (!row || !div?.clientWidth || !div?.clientHeight) return null;
     const rect = div.getBoundingClientRect(), actual = this.app.pdfViewer.getPageView(position.page)?.viewport;
-    let sx = div.clientWidth / data.viewport.width, sy = div.clientHeight / data.viewport.height;
-    let box = focusBox(data.rows, position.index, 6 / sx, 3 / sy);
-    if (actual && actual.rotation !== data.viewport.rotation) {
-      const a = data.viewport.transform, b = actual.transform, determinant = a[0] * a[3] - a[1] * a[2];
+    const sx = div.clientWidth / data.viewport.width, sy = div.clientHeight / data.viewport.height;
+    const indices = row.fragments || [position.index];
+    const rows = data.fragments || data.rows;
+    const rects = indices.map(index => this.screenFragment(focusBox(rows, index, 6 / sx, 3 / sy), data.viewport, actual, div, rect));
+    if (rects.length === 1) return rects[0];
+    const left = Math.min(...rects.map(box => box.left)), top = Math.min(...rects.map(box => box.top));
+    const right = Math.max(...rects.map(box => box.right)), bottom = Math.max(...rects.map(box => box.bottom));
+    return { left, top, right, bottom, width: right - left, height: bottom - top, rects };
+  }
+  screenFragment(box, viewport, actual, div, rect) {
+    let sx = div.clientWidth / viewport.width, sy = div.clientHeight / viewport.height;
+    if (actual && actual.rotation !== viewport.rotation) {
+      const a = viewport.transform, b = actual.transform, determinant = a[0] * a[3] - a[1] * a[2];
       const points = [[box.x, box.y], [box.right, box.y], [box.x, box.bottom], [box.right, box.bottom]].map(([x, y]) => {
         const px = ((x - a[4]) * a[3] - (y - a[5]) * a[2]) / determinant;
         const py = ((y - a[5]) * a[0] - (x - a[4]) * a[1]) / determinant;
@@ -733,7 +758,8 @@ class GuideSession {
     if (!div || !rows.length) return false;
     const rect = div.getBoundingClientRect(), data = this.pageData.get(page), viewport = data.viewport;
     if (geometry && [rect.left, rect.top, div.clientWidth, div.clientHeight].some((value, index) => Math.abs(value - geometry[index]) > .1)) return false;
-    const index = closestRow(rows, (x - rect.left - (div.clientLeft || 0)) * viewport.width / div.clientWidth, (y - rect.top - (div.clientTop || 0)) * viewport.height / div.clientHeight, data.excludedRows, data.excludedRegions || data.figureRegions);
+    const hit = closestRow(data.fragments || rows, (x - rect.left - (div.clientLeft || 0)) * viewport.width / div.clientWidth, (y - rect.top - (div.clientTop || 0)) * viewport.height / div.clientHeight, data.excludedRows, data.excludedRegions || data.figureRegions);
+    const index = data.fragments?.[hit]?.unitIndex ?? hit;
     if (index < 0) return false;
     this.selectFocus({ page, index }); this.paint(); this.prefetchNeighbors(); return true;
   }
@@ -767,7 +793,7 @@ class GuideSession {
     if (!this.valid(owner)) return false;
     let rows = rowsAtStart, index = null;
     if (anchor) {
-      const mapped = anchor.item === undefined ? anchor.index : rows.findIndex(row => row.items.some(item => item.index === anchor.item));
+      const mapped = findFocusIndex(rows, anchor);
       if (mapped < 0 || !rows[mapped]) {
         // An explicit reading key may leave a source newly classified as a
         // table. Only the shared reading tree supplies its adjacent prose.
@@ -816,16 +842,54 @@ class GuideSession {
     this.scrollOwner = { operation: owner, epoch: this.layoutEpoch };
     this.ensureScrollMotion().retarget(target.top, target.left);
   }
+  paintSentenceMask(rects) {
+    const ns = "http://www.w3.org/2000/svg";
+    const create = (tag, attrs) => {
+      const element = this.win.document.createElementNS(ns, tag);
+      for (const [key, value] of Object.entries(attrs)) element.setAttribute(key, value);
+      return element;
+    };
+    if (!this.sentenceMask) {
+      const svg = create("svg", { width: "100%", height: "100%" });
+      const mask = create("mask", { id: "adhd-sentence-apertures", maskUnits: "userSpaceOnUse", width: "100%", height: "100%" });
+      mask.append(create("rect", { width: "100%", height: "100%", fill: "white" }));
+      const shade = create("rect", { width: "100%", height: "100%", mask: "url(#adhd-sentence-apertures)" });
+      svg.append(mask, shade);
+      this.overlay.append(svg);
+      this.sentenceMask = { svg, mask, shade, holes: [] };
+    }
+    const { svg, mask, shade, holes } = this.sentenceMask;
+    svg.style.display = "block";
+    shade.setAttribute("fill", this.dark ? "#1a1a1a" : "#fff");
+    shade.setAttribute("fill-opacity", this.level);
+    while (holes.length > rects.length) holes.pop().remove();
+    for (const [index, { left, top, width, height }] of rects.entries()) {
+      if (!holes[index]) {
+        holes[index] = create("rect", { fill: "black" });
+        mask.append(holes[index]);
+      }
+      holes[index].setAttribute("x", left);
+      holes[index].setAttribute("y", top);
+      holes[index].setAttribute("width", width);
+      holes[index].setAttribute("height", height);
+    }
+  }
   paint() {
     if (!this.overlay) return;
     if (!this.enabled) { this.overlay.style.display = "none"; return; }
     const box = this.screenBox(), bounds = this.viewportBounds();
-    const visible = this.intersects(box, bounds);
-    // Mask state belongs to the enabled guide, including empty pages and pending text extraction.
-    Object.assign(this.overlay.style, { display:"block", top:`${visible ? box.top : bounds.top}px`, left:`${visible ? box.left : bounds.left}px`, width:`${visible ? box.width : 0}px`, height:`${visible ? box.height : 0}px`, boxShadow:`0 0 0 200vmax rgba(${this.dark ? "26,26,26" : "255,255,255"},${this.level})` });
+    const visible = box?.rects ? box.rects.some(rect => this.intersects(rect, bounds)) : this.intersects(box, bounds);
+    if (visible && box.rects) {
+      Object.assign(this.overlay.style, { display:"block", top:"0px", left:"0px", width:"100%", height:"100%", boxShadow:"none" });
+      this.paintSentenceMask(box.rects);
+    } else {
+      if (this.sentenceMask) this.sentenceMask.svg.style.display = "none";
+      // Mask state belongs to the enabled guide, including empty pages and pending text extraction.
+      Object.assign(this.overlay.style, { display:"block", top:`${visible ? box.top : bounds.top}px`, left:`${visible ? box.left : bounds.left}px`, width:`${visible ? box.width : 0}px`, height:`${visible ? box.height : 0}px`, boxShadow:`0 0 0 200vmax rgba(${this.dark ? "26,26,26" : "255,255,255"},${this.level})` });
+    }
     if (visible && !this.geometrySettling && this.layoutRefreshOwner == null) {
       const row = this.pageData?.get(this.current.page)?.rows[this.current.index], viewport = this.app.pdfViewer.getPageView(this.current.page)?.viewport;
-      this.stableFocus = { page: this.current.page, index: this.current.index, item: this.lockedFocus()?.item ?? row?.items[0]?.index, win: this.win, document: this.app.pdfDocument, epoch: this.layoutEpoch,
+      this.stableFocus = { page: this.current.page, index: this.current.index, item: this.lockedFocus()?.item ?? row?.items[0]?.index, offset: this.lockedFocus()?.offset, win: this.win, document: this.app.pdfDocument, epoch: this.layoutEpoch,
         ratio: ((box.top + box.bottom) / 2 - bounds.top) / bounds.height, scale: viewport?.scale, rotation: viewport?.rotation, viewerScale: this.app.pdfViewer.currentScale };
     } else if (!visible && !this.geometrySettling) this.stableFocus = null;
   }
@@ -862,14 +926,14 @@ class GuideSession {
     if (this.disposed) return;
     Zotero.logError(error);
     const button = [...this.buttons].find(b => b.isConnected);
-    if (button) { button.title = error.message; button.textContent = "重试行读"; }
+    if (button) { button.title = error.message; button.textContent = "重试句读"; }
   }
   detach() {
     this.cancelNavigation(); this.layoutEpoch++;
     this.orientationRefresh = null;
     this.scrollMotion = null;
     for (const cleanup of this.cleanups.splice(0)) { try { cleanup(); } catch {} }
-    this.overlay?.remove(); this.overlay = null;
+    this.overlay?.remove(); this.overlay = null; this.sentenceMask = null;
     this.cache.clear(); this.pendingRows.clear(); this.pageData?.clear(); this.metricPages = new WeakMap(); this.current = null; this.focusAnchor = null; this.win = null; this.app = null;
   }
   dispose() {
@@ -879,24 +943,24 @@ class GuideSession {
     this.detach();
     for (const cleanup of this.toolbarDocuments.values()) cleanup();
     this.toolbarDocuments.clear(); this.menus.clear();
-    for (const button of this.buttons) (button.closest(".linea-toolbar-section") || button.closest(".linea-toolbar"))?.remove();
+    for (const button of this.buttons) (button.closest(".adhd-sentence-toolbar-section") || button.closest(".adhd-sentence-toolbar"))?.remove();
     this.buttons.clear(); sessions.delete(this.reader);
   }
 }
 
 function renderToolbar({ reader, doc, append }) {
   if (reader.type !== "pdf") return;
-  if (doc.querySelector?.(".toolbar .end .custom-sections .linea-toolbar")) return;
+  if (doc.querySelector?.(".toolbar .end .custom-sections .adhd-sentence-toolbar")) return;
   let session = sessions.get(reader);
   if (!session) { session = new GuideSession(reader, doc); sessions.set(reader, session); }
   const container = doc.createElement("div");
-  container.className = "linea-toolbar";
+  container.className = "adhd-sentence-toolbar";
   container.style.cssText = "display:flex;align-items:center;gap:4px;margin-inline:5px;font:12px system-ui;";
   // Zotero's toolbar is a native window-drag region. Exempt the complete
   // extension control tree, including settings opened outside the toolbar row.
   // DOM click dispatch alone cannot test the OS hit testing that consumes drags.
   const interactionStyle = doc.createElement("style");
-  interactionStyle.textContent = ".linea-toolbar, .linea-toolbar * { -moz-window-dragging: no-drag; }";
+  interactionStyle.textContent = ".adhd-sentence-toolbar, .adhd-sentence-toolbar * { -moz-window-dragging: no-drag; }";
   container.append(interactionStyle);
   const button = (label, title, action) => {
     const el = doc.createElement("button");
@@ -906,10 +970,10 @@ function renderToolbar({ reader, doc, append }) {
     el.addEventListener("click", () => Promise.resolve(action(el)).catch(e => session.error(e)));
     container.append(el); return el;
   };
-  const toggle = button("行读", "逐行聚焦 · 点击定位 · ↑ ↓ Enter 换行", async el => { await session.toggle(); el.textContent = "行读"; });
+  const toggle = button("句读", "逐句聚焦 · 点击定位 · ↑ ↓ Enter 换句", async el => { await session.toggle(); el.textContent = "句读"; });
   toggle.setAttribute("aria-pressed", String(session.enabled)); session.buttons.add(toggle);
   const controls = doc.createElement("details"); controls.style.position = "relative";
-  const summary = doc.createElement("summary"); summary.textContent = "⋯"; summary.title = "行读设置";
+  const summary = doc.createElement("summary"); summary.textContent = "⋯"; summary.title = "句读设置";
   summary.style.cssText = "display:flex;align-items:center;justify-content:center;box-sizing:border-box;height:28px;min-width:28px;cursor:pointer;list-style:none;padding:0 6px;font-weight:bold;";
   controls.append(summary);
   const panel = doc.createElement("div");
@@ -934,12 +998,12 @@ async function mountExistingReader(reader, generation) {
   if (!running || generation !== startupGeneration || reader._isUninitialized || reader._isTabClosed) return;
   const doc = reader._iframeWindow?.document;
   const slot = doc?.querySelector(".toolbar .end .custom-sections");
-  if (!slot || slot.querySelector(".linea-toolbar")) return;
+  if (!slot || slot.querySelector(".adhd-sentence-toolbar")) return;
   // Registering an event does not rerender Zotero's memoized toolbar slot.
   // Backfill this existing slot once; future toolbars use the normal event.
   renderToolbar({ reader, doc, append: element => {
     const section = doc.createElement("div");
-    section.className = "section linea-toolbar-section";
+    section.className = "section adhd-sentence-toolbar-section";
     section.append(element); slot.append(section);
   } });
 }
@@ -952,7 +1016,7 @@ async function startup(data) {
   const scope = {};
   // Zotero's bootstrap contract passes rootURI as a string (including jar: XPI roots).
   const rootURI = data.rootURI || data.resourceURI?.spec;
-  if (typeof rootURI !== "string") throw new Error("ADHD Reader 插件资源路径不可用");
+  if (typeof rootURI !== "string") throw new Error("ADHD Sentence Reader 插件资源路径不可用");
   const resourceURL = path => `${rootURI.endsWith("/") ? rootURI : rootURI + "/"}${path}`;
   Services.scriptloader.loadSubScript(resourceURL("glyph-metrics.js"), scope, "UTF-8");
   glyphMetrics = scope.ADHDGlyphMetrics;
